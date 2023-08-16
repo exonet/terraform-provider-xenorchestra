@@ -407,8 +407,7 @@ func resourceVmCreate(d *schema.ResourceData, m interface{}) error {
 			Id: rsId.(string),
 		}
 	}
-	vm, err := c.CreateVm(client.Vm{
-		AffinityHost:      d.Get("affinity_host").(string),
+	createVmParams := client.Vm{
 		BlockedOperations: blockedOperations,
 		Boot: client.Boot{
 			Firmware: d.Get("hvm_boot_firmware").(string),
@@ -419,6 +418,8 @@ func resourceVmCreate(d *schema.ResourceData, m interface{}) error {
 		Template:        d.Get("template").(string),
 		CloudConfig:     d.Get("cloud_config").(string),
 		ResourceSet:     rs,
+		HA:              d.Get("high_availability").(string),
+		AutoPoweron:     d.Get("auto_poweron").(bool),
 		CPUs: client.CPUs{
 			Number: d.Get("cpus").(int),
 		},
@@ -440,9 +441,13 @@ func resourceVmCreate(d *schema.ResourceData, m interface{}) error {
 			Value: d.Get("videoram").(int),
 		},
 		Vga: d.Get("vga").(string),
-	},
-		d.Timeout(schema.TimeoutCreate),
-	)
+	}
+
+	affinityHost := d.Get("affinity_host").(string)
+	if affinityHost != "" {
+		createVmParams.AffinityHost = &affinityHost
+	}
+	vm, err := c.CreateVm(createVmParams, d.Timeout(schema.TimeoutCreate))
 
 	if err != nil {
 		return err
@@ -778,7 +783,6 @@ func resourceVmUpdate(d *schema.ResourceData, m interface{}) error {
 		HA:                ha,
 		ResourceSet:       rs,
 		AutoPoweron:       autoPowerOn,
-		AffinityHost:      affinityHost,
 		BlockedOperations: blockOperations,
 		ExpNestedHvm:      d.Get("exp_nested_hvm").(bool),
 		StartDelay:        d.Get("start_delay").(int),
@@ -792,6 +796,11 @@ func resourceVmUpdate(d *schema.ResourceData, m interface{}) error {
 			Value: d.Get("videoram").(int),
 		},
 	}
+
+	if d.HasChange("affinity_host") {
+		vmReq.AffinityHost = &affinityHost
+	}
+
 	if haltForUpdates {
 		err := c.HaltVm(id)
 

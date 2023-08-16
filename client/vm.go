@@ -95,7 +95,7 @@ type Vm struct {
 	Boot               Boot              `json:"boot,omitempty"`
 	Type               string            `json:"type,omitempty"`
 	Id                 string            `json:"id,omitempty"`
-	AffinityHost       string            `json:"affinityHost,omitempty"`
+	AffinityHost       *string           `json:"affinityHost,omitempty"`
 	NameDescription    string            `json:"name_description"`
 	NameLabel          string            `json:"name_label"`
 	CPUs               CPUs              `json:"CPUs"`
@@ -212,7 +212,6 @@ func (c *Client) CreateVm(vmReq Vm, createTime time.Duration) (*Vm, error) {
 	}
 
 	params := map[string]interface{}{
-		"affinityHost":     vmReq.AffinityHost,
 		"bootAfterCreate":  true,
 		"name_label":       vmReq.NameLabel,
 		"name_description": vmReq.NameDescription,
@@ -227,10 +226,12 @@ func (c *Client) CreateVm(vmReq Vm, createTime time.Duration) (*Vm, error) {
 		"existingDisks":    existingDisks,
 		// TODO: (#145) Uncomment this once issues with secure_boot have been figured out
 		// "secureBoot":       vmReq.SecureBoot,
-		"expNestedHvm": vmReq.ExpNestedHvm,
-		"VDIs":         vdis,
-		"VIFs":         vmReq.VIFsMap,
-		"tags":         vmReq.Tags,
+		"expNestedHvm":      vmReq.ExpNestedHvm,
+		"VDIs":              vdis,
+		"VIFs":              vmReq.VIFsMap,
+		"tags":              vmReq.Tags,
+		"auto_poweron":      vmReq.AutoPoweron,
+		"high_availability": vmReq.HA,
 	}
 
 	videoram := vmReq.Videoram.Value
@@ -241,6 +242,11 @@ func (c *Client) CreateVm(vmReq Vm, createTime time.Duration) (*Vm, error) {
 	firmware := vmReq.Boot.Firmware
 	if firmware != "" {
 		params["hvmBootFirmware"] = firmware
+	}
+
+	affinityHost := vmReq.AffinityHost
+	if affinityHost != nil {
+		params["affinityHost"] = affinityHost
 	}
 
 	vga := vmReq.Vga
@@ -319,7 +325,6 @@ func createVdiMap(disk Disk) map[string]interface{} {
 func (c *Client) UpdateVm(vmReq Vm) (*Vm, error) {
 	params := map[string]interface{}{
 		"id":                vmReq.Id,
-		"affinityHost":      vmReq.AffinityHost,
 		"name_label":        vmReq.NameLabel,
 		"name_description":  vmReq.NameDescription,
 		"auto_poweron":      vmReq.AutoPoweron,
@@ -345,6 +350,15 @@ func (c *Client) UpdateVm(vmReq Vm) (*Vm, error) {
 		"id":        vmReq.Id,
 		"memoryMin": vmReq.Memory.Static[1],
 		"memoryMax": vmReq.Memory.Static[1],
+	}
+
+	affinityHost := vmReq.AffinityHost
+	if affinityHost != nil {
+		if *affinityHost == "" {
+			params["affinityHost"] = nil
+		} else {
+			params["affinityHost"] = *affinityHost
+		}
 	}
 
 	videoram := vmReq.Videoram.Value
